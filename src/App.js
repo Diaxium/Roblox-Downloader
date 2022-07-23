@@ -61,7 +61,6 @@ const Settings = {
 // Dependencies
 const Roblox = require( 'noblox.js' ); // Could have used something else, but this has other features I may use in the future.
 const FileSys = require( 'fs' ); // Only thing I was aware of was the ability to write new folders/files.
-const path = require( 'path' ); // Used to get the path of the current directory.
 
 // --------------------------------------------------------------------------------------------------------------------- \\
 
