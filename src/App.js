@@ -23,7 +23,7 @@
             Settings.Pages.Minimum or Settings.Pages.Maximum, it will download all the pages. Exception is if you
             added to the Settings.Versions array, it will download all the versions.
     4. Optional: Add numbers of the versions you want to download. Example: Settings.Versions = [ 1, 2, 3, 4, 5 ]
-    5. Optional: Change the Settings.Path to the path you want to save the files to. Example: Settings.Path = './Downloads'
+    5. Optional: Change the Settings.Path to the path you want to save the files to. Example: Settings.Path = 'Downloads'
              Which will save to the current directory's Downloads folder.
     6. Run the script. To preform this you'll need to use cmd or shell terminal and making sure the location the consoles directory is
             set to the src folder then you can execute "node App.js" if you don't currently have node installed. The application
@@ -51,7 +51,7 @@ const Settings = {
         Maximum : 1
     },
     Versions : [ ], // Add the numbers of the versions you want to download. Example: Settings.Versions = [ 1, 2, 3, 4, 5 ]
-    Path : './Downloads' // Change this to the path you want to save the files to.
+    Path : 'Downloads' // Change this to the path you want to save the files to.
 };
 
 // Don't change anything below this line unless you know what you're doing.
@@ -61,6 +61,7 @@ const Settings = {
 // Dependencies
 const Roblox = require( 'noblox.js' ); // Could have used something else, but this has other features I may use in the future.
 const FileSys = require( 'fs' ); // Only thing I was aware of was the ability to write new folders/files.
+const path = require( 'path' ); // Used to get the path of the current directory.
 
 // --------------------------------------------------------------------------------------------------------------------- \\
 
@@ -278,6 +279,23 @@ async function DownloadPages( UniverseId, Pages ) {
     console.assert( typeof UniverseId === 'number', 'UniverseId must be a number' );
     console.assert( Pages, 'Pages must be defined' );
 
+
+    const PlaceName = await GetPlaceInfo( UniverseId ).then( Place => Place.name );
+    const FilePath = `./${ Settings.Path }/${ PlaceName }`;
+
+
+    try {
+        if ( !FileSys.existsSync( `./${ Settings.Path }` ) ) {
+            FileSys.mkdirSync( `./${ Settings.Path }` );
+        }
+
+        if ( !FileSys.existsSync( FilePath ) ) {
+            FileSys.mkdirSync( FilePath );
+        }
+    } catch (err) {
+        console.error(err)
+    };
+
     for ( let PageId = 0; PageId < Pages.length; PageId++ ) {
         const Page = Pages[ PageId ];
 
@@ -286,22 +304,6 @@ async function DownloadPages( UniverseId, Pages ) {
             const Id = Version.Id;
             const Created = Version.Created;
             const VersionNumber = Version.VersionNumber;
-
-            const PlaceName = await GetPlaceInfo( UniverseId ).then( Place => Place.name );
-            const FilePath = `${ Settings.Path }/${ PlaceName }`;
-
-
-            try {
-              switch( !FileSys.existsSync( FilePath ) ) {
-                  case true : {
-                      FileSys.mkdirSync( FilePath );
-
-                      break;
-                  }
-              };
-            } catch (err) {
-                console.error(err)
-            };
 
             const FileName = `${ PlaceName } - ${ VersionNumber }`;
             const FileExtension = '.rbxl';
@@ -325,6 +327,7 @@ async function DownloadPages( UniverseId, Pages ) {
 
     console.log( '-----------------------------------------------------' );
     console.log( 'Completed!' );
+    console.log( ( Settings.Path == 'Downloads' ) ? 'Saved to ' + process.cwd() + '\\Downloads\\' + PlaceName : 'Saved to ' + Settings.Path + '\\' + PlaceName );
 };
 
 // Initialize - Initializes the program.
