@@ -1,0 +1,12 @@
+{
+  "UniverseId" : 0,
+  "Security" : {
+    "Key" : ""
+  },
+  "Pages" : {
+    "Minimum" : 1,
+    "Maximum" : 1
+  },
+  "Versions" : [  ],
+  "Path" : "Downloads"
+}
