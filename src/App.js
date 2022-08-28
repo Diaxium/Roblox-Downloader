@@ -38,420 +38,52 @@
             Further research is needed. )
 */
 
-// --------------------------------------------------------------------------------------------------------------------- \\
-
-// Settings - Represents what the application will download.
-const Settings = {
-    UniverseId : 0, // Replace with the UniverseId of the game you want to download.
-    Security : { // Change this to the cookie value from your Roblox account.
-        Key : ''
-    },
-    Pages : { // Change this to the number of pages you want to download. If you want to download all the pages, set one of them to null.
-        Minimum : 1,
-        Maximum : 1
-    },
-    Versions : [ ], // Add the numbers of the versions you want to download. Example: Settings.Versions = [ 1, 2, 3, 4, 5 ]
-    Path : 'Downloads' // Change this to the path you want to save the files to.
-};
-
 // Don't change anything below this line unless you know what you're doing.
 
 // --------------------------------------------------------------------------------------------------------------------- \\
 
 // Dependencies
-const Roblox = require( 'noblox.js' ); // Could have used something else, but this has other features I may use in the future.
-const FileSys = require( 'fs' ); // Only thing I was aware of was the ability to write new folders/files.
+const Utility = require( './Api/Utility.js' );
+const Settings = require( './Settings.json' );
 
 // --------------------------------------------------------------------------------------------------------------------- \\
 
-// GetPlaceInfo - Gets the place info of the place. Example: https://games.roblox.com/v1/games?universeIds=488258380
-async function GetPlaceInfo( UniverseId ) {
-    console.assert( typeof UniverseId === 'number', 'UniverseId must be a number' );
+// Filter:
+async function Filter( Settings, Page ) {
+    let Filtered = [ ];
 
-    return await Roblox.http(
-        'https://games.roblox.com/v1/games?universeIds=' + UniverseId,
-        {
-            method: 'GET',
-            headers: {
-                Accept: 'application/json',
-                cookie: `.ROBLOSECURITY=${Settings.Security.Key};`
-            }
-        }
-    ).then(Response => JSON.parse(Response)).then(Response => Response.data[0]);
-}
+    for ( let Index = 0; Index < Page.length; Index++ ) {
+        const Version = Page[ Index ];
 
-// GetPages - Gets the pages of the place and filters them to only include the versions you wanted. Example: https://api.roblox.com/assets/1192833831/versions/?page=1
-async function GetPages( Universe, InitialPage, FinalPage, Filter ) {
-    console.assert( typeof Universe === 'object', 'Universe must be an object' );
-    console.assert( ( Filter && typeof Filter === 'function' ) || !Filter, 'Filter must be a function' );
-
-    let Pages = [];
-    const PlaceId = Universe.rootPlaceId;
-
-    switch( InitialPage != null && FinalPage != null ) {
-        case true : {
-            switch( InitialPage === 1 && FinalPage === 1 ) {
-                case true : {
-                    let Page = await Roblox.http(
-                        'https://api.roblox.com/assets/' + PlaceId + '/versions/?page=1',
-                        {
-                            method: 'GET',
-                            headers: {
-                                Accept: 'application/json',
-                                cookie: `.ROBLOSECURITY=${ Settings.Security.Key };`
-                            }
-                        }
-                    );
-
-                    Page = JSON.parse( Page );
-
-                    switch( Filter != null ) {
-                        case true : {
-                            let FoundPages = await Filter( Page );
-
-                            if ( FoundPages != null ) {
-                                Pages.push( FoundPages );
-                            }
-
-                            break;
-                        }
-
-                        case false : {
-                            Pages.push( Page );
-
-                            break;
-                        }
-                    }
-
-                    break;
-                }
-
-                case false : {
-                    for ( let Id = InitialPage; Id <= FinalPage; Id++ ) {
-                        let Page = await Roblox.http(
-                            'https://api.roblox.com/assets/' + PlaceId + '/versions/?page=' + Id,
-                            {
-                                method: 'GET',
-                                headers: {
-                                    Accept: 'application/json',
-                                    cookie: `.ROBLOSECURITY=${ Settings.Security.Key };`
-                                }
-                            }
-                        );
-
-                        Page = JSON.parse( Page );
-
-                        switch( Filter != null ) {
-                            case true : {
-                                let FoundPages = await Filter( Page );
-
-                                if ( FoundPages != null ) {
-                                    Pages.push( FoundPages );
-                                }
-
-                                break;
-                            }
-
-                            case false : {
-                                Pages.push( Page );
-
-                                break;
-                            }
-                        }
-                    }
-
-                    break;
-                }
-            }
-
-            break;
-        }
-
-        case false : {
-            let Page = await Roblox.http(
-                'https://api.roblox.com/v2/assets/' + PlaceId + '/versions/',
-                {
-                    method: 'GET',
-                    headers: {
-                        Accept: 'application/json',
-                        cookie: `.ROBLOSECURITY=${ Settings.Security.Key };`
-                    }
-                }
-            );
-
-            Page = JSON.parse( Page );
-
-            let NextPage = Page.nextPageCursor;
-
-            switch( Filter != null ) {
-                case true : {
-                    let FoundPages = await Filter( Page.data );
-
-                    if ( FoundPages != null ) {
-                        Pages.push( FoundPages );
-                    }
-
-                    break;
-                }
-
-                case false : {
-                    Pages.push( Page.data );
-
-                    break;
-                }
-            }
-
-            while ( NextPage ) {
-                Page = await Roblox.http(
-                    'https://api.roblox.com/v2/assets/' + PlaceId + '/versions/?cursor=' + NextPage,
-                    {
-                        method: 'GET',
-                        headers: {
-                            Accept: 'application/json',
-                            cookie: `.ROBLOSECURITY=${ Settings.Security.Key };`
-                        }
-                    }
-                );
-
-                Page = JSON.parse( Page );
-
-                switch( Filter != null ) {
-                    case true : {
-                        let FoundPages = await Filter( Page.data );
-
-                        if ( FoundPages != null ) {
-                            Pages.push( FoundPages );
-                        }
-
-                        break;
-                    }
-
-                    case false : {
-                        Pages.push( Page.data );
-
-                        break;
-                    }
-                }
-
-                NextPage = Page.nextPageCursor;
-            }
-
-            break;
-        }
+        Filtered.push( Settings.Versions.includes( Version.VersionNumber ) ? Version : null );
     }
 
-    return Pages;
+    return ( Filtered.length > 0 ) ? Filtered.filter( Element => ( Element !== null ) ) : null;
 }
 
-// FilterVersions - Filters the versions to only include the versions you wanted.
-async function FilterVersions( Page ) {
-    console.assert( Page, 'Page must be defined' );
-
-    let Versions = [];
-
-    for ( let Version = 0; Version < Page.length; Version++ ) {
-        let VersionInfo = Page[ Version ];
-
-        switch( Settings.Versions.includes( VersionInfo.VersionNumber ) ) {
-            case true : {
-                Versions.push( VersionInfo );
-
-                break;
-            }
-
-            case false : {
-
-                break;
-            }
-        }
-
-    }
-
-    return ( Versions.length > 0 ) ? Versions : null;
-}
-
-// DownloadPages - Downloads the arrayed pages returned from GetPages. Example: https://assetdelivery.roblox.com/v1/asset?assetVersionId=2642417122
-async function DownloadPages( Universe, Pages ) {
-    console.assert( typeof Universe === 'object', 'UniverseInfo must be an object' );
-    console.assert( Pages, 'Pages must be defined' );
-
-    let SuccessfulDownloads = [ ];
-    const PlaceName = Universe.name;
-    const FilePath = `./${ Settings.Path }/${ PlaceName }`;
-
-    try {
-        if ( !FileSys.existsSync( `./${ Settings.Path }` ) ) {
-            await FileSys.mkdirSync( `./${ Settings.Path }` );
-        }
-
-        if ( !FileSys.existsSync( FilePath ) ) {
-            FileSys.mkdirSync( FilePath );
-        }
-    } catch (err) {
-        console.error(err)
-    }
-
-    for ( let PageId = 0; PageId < Pages.length; PageId++ ) {
-        const Page = Pages[ PageId ];
-
-        for ( let VersionId = 0; VersionId < Page.length; VersionId++ ) {
-            const Version = Page[ VersionId ];
-            const Id = Version.Id;
-            const Created = Version.Created;
-            const VersionNumber = Version.VersionNumber;
-
-            const FileName = `${ PlaceName } - ${ VersionNumber }`;
-            const FileExtension = '.rbxl';
-
-            let FileSource = await Roblox.http(
-                'https://assetdelivery.roblox.com/v1/asset?assetVersionId=' + Id,
-                {
-                    method: 'GET',
-                    headers: {
-                        Accept: 'application/octet-stream',
-                        cookie: `.ROBLOSECURITY=${ Settings.Security.Key };`,
-                    }
-                }
-            );
-
-            switch ( FileSource !== null ) {
-                case true : {
-                    FileSource = Buffer.from( FileSource, 'latin1' );
-
-                    await FileSys.promises.writeFile( FilePath + '/' + FileName + FileExtension, FileSource );
-
-                    SuccessfulDownloads.push( VersionNumber );
-                    console.log( 'Downloaded version ' + FileName + ' Published on : (' + Created + ')' );
-
-                    break;
-                }
-
-                case false : {
-                    console.error( 'Failed to download file: ' + FileName );
-
-                    break;
-                }
-            }
-        }
-    }
-
-    console.log( '-----------------------------------------------------' );
-    console.log( 'Downloaded ' + SuccessfulDownloads.length + ' of ' + Pages.length + ' versions' + ` [ ${ SuccessfulDownloads.join( ', ' ) } ]` );
-    console.log( ( Settings.Path === 'Downloads' ) ? 'Saved to ' + process.cwd() + '\\Downloads\\' + PlaceName : 'Saved to ' + Settings.Path + '\\' + PlaceName );
-    process.exit();
-}
-
-// Initialize - Initializes the program.
+// Initialize:
 async function Initialize() {
-    console.log( 'Roblox Asset Downloader' )
-    console.log( '-----------------------------------------------------' );
-    console.log( 'Initializing' );
+    console.log( `-> Roblox Asset Downloader <-\n${ '-'.repeat( 20 ) }\nInitializing:` );
+    console.assert( Settings.Security.Key !== '' || !Settings.Security.Key.startsWith( '_|WARNING:-DO-NOT-SHARE-THIS.--Sharing-this-will-allow-someone-to-log-in-as-you-and-to-steal-your-ROBUX-and-items.|_' ), `-> Security Key: Missing or Invalid!` );
+    console.log( `-> Security: Authorization loaded!` );
+    console.assert( typeof( Settings.UniverseId ) === 'number' || Settings.UniverseId === 0, `-> Universe Id: Missing or Invalid!` );
 
-    switch( Settings.Security.Key === '' ) {
-        case true : {
-            console.error( 'Roblox Security Key is not set' );
+    const Place_info = await Utility.Place_info( Settings, Settings.UniverseId );
 
-            break;
-        }
+    console.assert( typeof( Place_info ) === 'object', `-> Universe Id: Missing or Invalid!` );
+    console.log( `-> Place Id: ${ Place_info.rootPlaceId }\n-> Place Name: ${ Place_info.name }\n-> Place loaded!` );
+    console.log( `-> Pages: ${ ( Settings.Pages.Minimum && Settings.Pages.Maximum ) ? ( Settings.Pages.Minimum + ' To ' + Settings.Pages.Maximum ) : 'Any' } -- Warning if no version's are listed and min or max is void then it will download all version! This usually can take a while!` );
+    console.log( `-> Versions: ${ ( Settings.Versions.length > 0 ) ? '[' + Settings.Versions.join( ' ' ) + ']' : '[ ]' } -- Warning if no version's are found within the pages limit's, no places will be downloaded!` );
+    console.log( `Initialization completed!\n${ '-'.repeat( 20 ) }\nStarting downloads:` )
 
-        case false : {
-            let ValidKey = Settings.Security.Key.startsWith( '_|WARNING:-DO-NOT-SHARE-THIS.--Sharing-this-will-allow-someone-to-log-in-as-you-and-to-steal-your-ROBUX-and-items.|_' );
-
-            switch ( ValidKey ) {
-                case true : {
-                    console.log( 'Roblox Authorization Loaded!' );
-
-                    break;
-                }
-
-                case false : {
-                    console.error( 'Roblox Authorization is not valid' );
-
-                    return;
-                }
-            }
-
-            break;
-        }
-    }
-
-    switch ( typeof Settings.UniverseId === 'number' && Settings.UniverseId !== 0 ) {
-        case true : {
-            console.log( 'Loading Universe Info' );
-
-            await GetPlaceInfo( Settings.UniverseId ).then( Universe => {
-                switch ( typeof Universe === 'object' ) {
-                    case true : {
-                        console.log( 'Universe Id: ' + Universe.rootPlaceId );
-                        console.log( 'Universe Name: ' + Universe.name );
-                        console.log( 'Universe Loaded!' );
-
-                        break;
-                    }
-
-                    case false : {
-                        console.error( 'Universe not found! Please check the UniverseId and try again!' );
-
-                        return;
-                    }
-                }
-
-                switch( Settings.Pages.Minimum != null && Settings.Pages.Maximum != null ) {
-                    case true : {
-                        console.log( 'Downloading Pages ' + Settings.Pages.Minimum + ' To ' + Settings.Pages.Maximum );
-
-                        switch( Settings.Versions.length > 0 ) {
-                            case true : {
-                                console.log( 'Selected Versions [' + Settings.Versions.join( ', ' ) + ']' );
-                                console.log( 'Warning if the versions are not found within the specified range, no versions will be downloaded' );
-
-                                break;
-                            }
-
-                            case false : {
-                                console.log( 'Warning each page you download can have a total of 50 published updates. Be patient.' );
-
-                                break;
-                            }
-                        }
-
-                        break;
-                    }
-
-                    case false : {
-                        switch( Settings.Versions.length > 0 ) {
-                            case true : {
-                                console.log( 'Selected Versions [ ' + Settings.Versions.join( ', ' ) + ' ]' );
-
-                                break;
-                            }
-
-                            case false : {
-                                console.log( 'Warning Download All Versions Will Take A While' );
-
-                                break;
-                            }
-                        }
-
-                        break;
-                    }
-                }
-
-                console.log( 'Initialization completed!' );
-                console.log( '-----------------------------------------------------' );
-                console.log( 'Starting download' );
-
-                GetPages( Universe, Settings.Pages.Minimum, Settings.Pages.Maximum, ( Settings.Versions.length > 0 ) ? FilterVersions : null ).then( Pages => DownloadPages( Universe, Pages ) );
-            });
-
-            break;
-        }
-
-        case false : {
-            console.error( 'Universe Id is not valid' );
-
-            return;
-        }
-    }
+    return Place_info;
 }
-Initialize().then( );
+
+// Download:
+async function Download( Settings, Place_info ) {
+    const Pages = await Utility.Version_history.GetPages( Settings, Place_info, Settings.Pages.Minimum, Settings.Pages.Maximum, ( Settings.Versions.length > 0 ) ? Filter : null );
+    const Downloaded = await Utility.Version_history.Download( Settings, Place_info, Pages );
+
+    console.log( `-> Downloaded: ${ Downloaded.length > 1 ? Downloaded.concat( ' ' ) : Downloaded.concat( ) }\nDownloading Completed!` );
+}
+Initialize().then( async Place_info => await Download( Settings, Place_info) );
